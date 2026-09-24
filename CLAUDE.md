@@ -12,8 +12,8 @@ Estou construindo **incrementalmente**, seguindo um tutorial por marcos (Marco 0
 - Java 21, Spring Boot, Maven (`mvnw`)
 - LangChain4j (versão via `langchain4j-bom`, propriedade `${langchain4j.version}`)
 - Ollama local (`http://localhost:11434`)
-  - Chat: `llama3.1`
-  - Embeddings: `nomic-embed-text` (768 dimensões)
+  - Chat: `qwen3:8b` (configurável em `unifio.chat.model`; antes `llama3.1`)
+  - Embeddings: `bge-m3` (1024 dimensões; configurável em `unifio.embedding.model`; antes `nomic-embed-text`, 768)
 - Futuro: PDFBox (Marco 4), Postgres + pgvector via Docker (Marco 5), Kafka (Marco 7), Spring Security e front Angular já existem em outro tutorial e plugam nos endpoints REST.
 
 ## Ambiente
@@ -21,7 +21,10 @@ Estou construindo **incrementalmente**, seguindo um tutorial por marcos (Marco 0
 - Pacote base: `com.br.unifioragagent`
 - Estrutura atual:
   - `config/LangChainConfig` — beans `ChatLanguageModel`/`ChatModel`, `EmbeddingModel`, `EmbeddingStore<TextSegment>`
-  - `controller/ChatController` — `POST /chat`
+  - `controller/ChatController` — `POST /chat` (sem contexto) e `POST /chat2` (RAG top-4 + expansão de vizinhos ±1 página, máx. 6)
+  - `controller/DocumentUploadController` — `POST /institutional-documents` (multipart `files`)
+  - `service/DocumentIngestionService` — PDFBox por página → split 500/50 → embeddings (metadados `fileName`, `page`)
+  - `eval/` — `gabarito.json` (perguntas + páginas esperadas) e amostras do Docling
   - `EmbeddingDemoRunner` — CommandLineRunner do Marco 2 (demonstração, pode ser removido)
   - `UnifioRagAgentApplication`
 
@@ -39,7 +42,7 @@ Estou construindo **incrementalmente**, seguindo um tutorial por marcos (Marco 0
 | 2 | Entender embeddings (similaridade de cosseno) | `EmbeddingDemoRunner` |
 | 3 | RAG em memória com fatos fixos | `InMemoryEmbeddingStore` + `/chat` com busca top-2 |
 | 4 | Ingestão de PDF real (síncrona) | `POST /institutional-documents` (PDFBox, split 500/50, metadados `fileName`, `page`) |
-| 5 | Persistência | `PgVectorEmbeddingStore` (tabela `institutional_embeddings`, dim 768) + docker-compose |
+| 5 | Persistência | `PgVectorEmbeddingStore` (tabela `institutional_embeddings`, dim **1024** por causa do `bge-m3`; o tutorial diz 768) + docker-compose |
 | 6 | Citação de fonte | `ChatResponse(answer, sources[fileName, page])`, top-4 |
 | 7 | Ingestão assíncrona | Kafka: upload publica evento, `@KafkaListener` faz o ingest |
 
@@ -47,9 +50,9 @@ Estou construindo **incrementalmente**, seguindo um tutorial por marcos (Marco 0
 - [x] Marco 0 — Ollama instalado, `llama3.1` e `nomic-embed-text` funcionando
 - [x] Marco 1 — `/chat` respondendo
 - [x] Marco 2 — demo de embeddings rodou (dim 768; sim. relacionada ≈ 0.708, não relacionada ≈ 0.601)
-- [ ] Marco 3 — **em andamento**: bean `embeddingStore` com `InMemoryEmbeddingStore` sendo criado
-- [ ] Marco 4
-- [ ] Marco 5
+- [x] Marco 3 — RAG em memória (`/chat2`); evoluiu para top-4 + expansão de vizinhos
+- [x] Marco 4 — ingestão de PDF (PPC 192 págs + horário) funcionando; limites conhecidos com tabelas/listas (ver log)
+- [ ] Marco 5 — **próximo**: pgvector (dim 1024) + docker-compose; depois extras: busca híbrida e `docling-serve`
 - [ ] Marco 6
 - [ ] Marco 7
 
@@ -64,4 +67,13 @@ Estou construindo **incrementalmente**, seguindo um tutorial por marcos (Marco 0
 
 ## Log de sessões
 <!-- Claude: adicione uma linha por sessão, mais recente no topo. Formato: AAAA-MM-DD — o que foi feito — próximo passo -->
+- 2026-09-24 — Teste da expansão de vizinhos (instância na porta 8081, qwen3:8b + bge-m3): mecânica funciona (±1 página, máx. 6, sem duplicar), mas **sem ganho no gabarito** — busca não chega perto da matriz (top-4 da pergunta de disciplinas: p.47, 29, 68, 27) nem da p.3. "6º semestre?" e coordenador → "não está no contexto"; 1970 ✅. Ponto positivo: qwen3 diz "não sei" em vez de inventar. ~25 s por resposta (maior parte é o raciocínio do qwen3). Expansão só deve render quando a busca melhorar (híbrida no Marco 5).
+- 2026-09-24 — Docling no ementário (seção 3.4.1, págs. 69–72): detectou como título "3.4.1. Disciplinas", "PRIMEIRO SEMESTRE", cada nome de disciplina, "EMENTA" e "BIBLIOGRAFIA BÁSICA/COMPLEMENTAR", mas **todos no mesmo nível** (`##` no MD, `level=1` no JSON), sem hierarquia. Dividir só "por título" separaria EMENTA/BIBLIOGRAFIA do nome da disciplina. Próximo: inferir hierarquia de forma genérica (numeração 3.4.1 → profundidade; títulos repetidos como EMENTA = rótulos internos; ou LLM classificando a lista de títulos).
+- 2026-09-24 — Chat trocado para `qwen3:8b` (propriedade `unifio.chat.model`). Ollama 0.34 devolve o raciocínio do qwen3 no campo `thinking` separado, então o `content` lido pelo LangChain4j vem limpo. Teste isolado (seção certa no contexto): coordenador ✅ com o prompt atual; disciplinas "não é possível determinar" com o prompt atual; com prompt "você pode listar, contar e resumir", acertou o total 46 mas errou a divisão por semestre e passou a recusar o coordenador (cauteloso demais). Contagem por LLM segue não confiável. Prompt do `/chat2` **não** foi alterado.
+- 2026-09-24 — Teste A/B (script Python fora da app, bge-m3 + llama3.1, top-4): Docling sozinho **não mudou as respostas**, porque as seções dele não entram no top-4 (matriz: pos. 27 de 1024; pág. 3 do coordenador: pos. 129). Indexar resumo gerado por LLM melhorou pouco (matriz → pos. 16). Com a seção certa forçada no contexto: llama3.1 listou 39 de 46 disciplinas (pulou o 1º semestre) e respondeu "Não sei" para o coordenador mesmo com o nome no texto. Conclusão: gargalos são (1) busca vetorial para tabelas/listas → busca híbrida/reranker com K maior; (2) llama3.1 8B na geração → testar modelo melhor.
+- 2026-09-24 — Teste do Docling (CLI, venv no scratchpad, `--no-ocr`) nas págs. 3 e 52–55: matriz saiu como tabela Markdown limpa (46 disciplinas + 5 optativas corretas; falhas menores: tabela quebra por página, coluna "Período" às vezes vazia). Amostra em `eval/ppc-trecho-docling.md`. Armadilhas: Python precisa de `truststore` (certificado autoassinado na cadeia HTTPS da rede); torch instalado é CPU (GPU RTX 4060 8 GB não usada). Integração planejada via `docling-serve` no Marco 5.
+- 2026-09-24 — `/chat2` com expansão de vizinhos (top-4 → páginas ±1, máx. 6 págs, trechos buscados por filtro `fileName`+`page` e reordenados por `index`); `numCtx(8192)` no chat. Compila; **não testado** (porta 8080 ocupada pela instância do usuário). Criado `eval/gabarito.json` (3 perguntas: fato em parágrafo p.9/11, fato em lista p.3, enumeração da matriz p.52–55 = 46 componentes). Matriz curricular = seção 3.3.1, págs. 52–55.
+- 2026-09-23 — Trocado para `bge-m3`. Demo Marco 2: relacionada 0.749 vs não relacionada 0.462 (gap 0.29, era 0.1 com nomic). Ingestão PPC (192 págs) + Horário (3 págs) em ~48s. "Primeiro curso superior de Ourinhos?" → acertou (p.9 e p.11 no top-2). "Quem é o coordenador?" → p.3 segue fora do top-6 (scores 0.80–0.815 todos em trechos sobre coordenação sem o nome): problema estrutural (nome em lista de cargos), não só do modelo. Obs.: `mvnw spring-boot:run` falha no testCompile porque o pom não tem `spring-boot-starter-test` (usar `-Dmaven.test.skip=true` ou adicionar a dependência).
+- 2026-09-23 — Teste com PPC real: "Quem é o coordenador?" → "Não sei" (nome está numa lista de cargos na p.3; "coordenador" aparece 43x no PPC e outros trechos ganham no ranking). `/chat2` passou para `maxResults(6)` com log de debug (score | fileName p.page | texto). Modelo de embedding agora configurável em `unifio.embedding.model` (application.properties) — próximo: montar gabarito de perguntas (pergunta → página esperada) e comparar recall@K entre `nomic-embed-text` e `bge-m3`, e entre tamanhos de chunk.
+- 2026-09-23 — Commit `4331017` enviado ao GitHub (`origin/main`): Marcos 1–3, incluindo `POST /chat2` com busca top-2 e prompt com contexto.
 - 2026-09-22 — Marcos 0–2 concluídos; iniciado Marco 3 (dependência `langchain4j` adicionada para `InMemoryEmbeddingStore`) — próximo: ChatController com busca top-2 e montagem do prompt.

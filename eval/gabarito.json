@@ -1,0 +1,40 @@
+[
+  {
+    "id": "ppc-primeiro-curso",
+    "tipo": "fato-paragrafo",
+    "pergunta": "Quando foi criado o primeiro curso superior de Ourinhos?",
+    "fileName": "PPC_EngenhariaDeSoftware.pdf",
+    "paginasEsperadas": [9, 11],
+    "respostaReferencia": "13 de março de 1970, com a criação da Faculdade de Administração de Empresas."
+  },
+  {
+    "id": "ppc-coordenador",
+    "tipo": "fato-lista",
+    "pergunta": "Quem é o coordenador do curso de Engenharia de Software?",
+    "fileName": "PPC_EngenhariaDeSoftware.pdf",
+    "paginasEsperadas": [3],
+    "respostaReferencia": "Rodrigo Moura Juvenil Ayres."
+  },
+  {
+    "id": "ppc-disciplinas",
+    "tipo": "enumeracao-tabela",
+    "pergunta": "Quais e quantas são as disciplinas do curso de Engenharia de Software?",
+    "fileName": "PPC_EngenhariaDeSoftware.pdf",
+    "paginasEsperadas": [52, 53, 54, 55],
+    "respostaReferencia": {
+      "total": "46 componentes na matriz (seção 3.3.1), incluindo 3 estágios e a vaga de optativa; 43 sem os estágios; 42 disciplinas fixas sem estágios e sem a optativa (incluindo os 8 Projetos Integradores).",
+      "porSemestre": {
+        "1": ["Fundamentos de Sistemas Ciberfísicos", "Inovação Disruptiva", "Raciocínio Matemático para Computação", "Programação de Computadores", "Projeto Integrador I"],
+        "2": ["Empreendedorismo", "Direito Aplicado ao Empreendedorismo e Inovação", "Engenharia de Requisitos", "Laboratório de Programação de Computadores", "Resolução Diferenciada de Problemas", "Projeto Integrador II"],
+        "3": ["Design e Desenvolvimento de Banco de Dados", "Projeto e Arquitetura de Software", "Programação Orientada a Objetos", "Sistemas Operacionais", "Projeto Integrador III"],
+        "4": ["Arquitetura e Administração de Banco de Dados", "Padrões de Desenvolvimento Web", "Fundamentos de Redes e Segurança", "Códigos de Alta Performance", "Projeto Integrador IV"],
+        "5": ["Desenvolvimento para Dispositivos Móveis", "Descoberta de Conhecimento em Banco de Dados", "Estatística Aplicada", "Ergonomia e Usabilidade", "Estudos Culturais, Antropológicos e Direitos Humanos", "Projeto Integrador V"],
+        "6": ["Verificação e Validação de Software", "Sensores e Circuitos Digitais", "Computação Cognitiva e Semântica", "Gerência de Configuração e Evolução de Software", "Estágio em Engenharia de Software I", "Projeto Integrador VI"],
+        "7": ["Arquitetura Orientada a Serviços", "Simulação e Métodos Analíticos", "Laboratório para Computação Cognitiva", "Governança de Tecnologia da Informação", "Estágio em Engenharia de Software II", "Projeto Integrador VII"],
+        "8": ["Sistemas Distribuídos e Cloud Computing", "Metodologia Científica", "Filosofia e Ética", "Trabalho de Graduação", "Optativa", "Estágio em Engenharia de Software III", "Projeto Integrador VIII"]
+      },
+      "optativas": ["Língua Brasileira de Sinais", "Meio Ambiente e Responsabilidade Social", "Cidadania, Ética e Sustentabilidade", "Fundamentos de Teoria da Computação", "Bancos de Dados NoSQL"]
+    },
+    "fonteReferencia": "Resposta do Claude Opus com o PDF inteiro anexado, conferida contra as págs. 52–55."
+  }
+]

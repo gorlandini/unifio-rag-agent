@@ -1,6 +1,24 @@
+### Upload de vários PDFs
+POST http://localhost:8080/institutional-documents
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="files"; filename="PPC_EngenhariaDeSoftware.pdf"
+Content-Type: application/pdf
+
+< C:/PPC_EngenhariaDeSoftware.pdf
+--WebAppBoundary
+Content-Disposition: form-data; name="files"; filename="Horario_2sem_2026.pdf"
+Content-Type: application/pdf
+
+< C:/Horario_2sem_2026.pdf
+--WebAppBoundary--
+
+
+###Pergunta
 POST http://localhost:8080/chat2
 Content-Type: application/json
 
 {
-  "question": "quantos professores compõem a banca?"
+  "question": "E quais são as disciplinas?"
 }

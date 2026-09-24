@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Amostras geradas (Docling etc.) - reproduziveis, nao versionar ###
+eval/*-docling.md
