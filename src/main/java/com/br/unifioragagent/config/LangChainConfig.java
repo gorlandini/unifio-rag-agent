@@ -1,6 +1,5 @@
 package com.br.unifioragagent.config;
 
-import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.ollama.OllamaChatModel;
@@ -10,7 +9,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.ollama.OllamaEmbeddingModel;
-import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
+import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
 
 @Configuration
 public class LangChainConfig {
@@ -36,20 +35,16 @@ public class LangChainConfig {
 
 
     @Bean
-    public EmbeddingStore<TextSegment> embeddingStore(EmbeddingModel embeddingModel) {
-        InMemoryEmbeddingStore<TextSegment> store = new InMemoryEmbeddingStore<>();
-// documentos de mentira, só para provar o mecanismo antes de ler PDF de verdade
-        String[] fatos = {
-                "O estágio supervisionado do curso de Engenharia de Software tem carga horária mínima de 400 horas.",
-                "As reuniões do colegiado do curso acontecem na primeira segunda-feira de cada mês.",
-                "O Trabalho de Conclusão de Curso (TCC) deve ser defendido perante banca de três professores."
-        };
-        for (String fato : fatos) {
-            var embedding = embeddingModel.embed(fato).content();
-            store.add(embedding, TextSegment.from(fato, Metadata.from("fonte", "documento-exemplo")));
-        }
-        return store;
+    public EmbeddingStore<TextSegment> embeddingStore(@Value("${unifio.embedding.dimension}") int dimension) {
+        return PgVectorEmbeddingStore.builder()
+                .host("localhost")
+                .port(5432)
+                .database("ragdb")
+                .user("rag")
+                .password("rag")
+                .table("institutional_embeddings")
+                .dimension(dimension) // precisa bater com o modelo: nomic-embed-text = 768, bge-m3 = 1024
+                .createTable(true)    // cria a extensão vector e a tabela se não existirem
+                .build();
     }
-
-
 }

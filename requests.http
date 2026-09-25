@@ -20,5 +20,5 @@ POST http://localhost:8080/chat2
 Content-Type: application/json
 
 {
-  "question": "E quais são as disciplinas?"
+  "question": "O que é ensinado na disciplina de Verificaçaõ e Validação de Software?"
 }

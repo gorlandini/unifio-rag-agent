@@ -56,6 +56,10 @@
             <artifactId>langchain4j</artifactId>
         </dependency>
         <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-pgvector</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>
             <version>3.0.3</version></dependency>

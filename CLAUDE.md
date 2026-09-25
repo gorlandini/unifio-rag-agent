@@ -20,10 +20,10 @@ Estou construindo **incrementalmente**, seguindo um tutorial por marcos (Marco 0
 - Windows + IntelliJ IDEA
 - Pacote base: `com.br.unifioragagent`
 - Estrutura atual:
-  - `config/LangChainConfig` — beans `ChatLanguageModel`/`ChatModel`, `EmbeddingModel`, `EmbeddingStore<TextSegment>`
+  - `config/LangChainConfig` — beans `ChatModel`, `EmbeddingModel`, `EmbeddingStore<TextSegment>` (`PgVectorEmbeddingStore`, dim em `unifio.embedding.dimension`)
   - `controller/ChatController` — `POST /chat` (sem contexto) e `POST /chat2` (RAG top-4 + expansão de vizinhos ±1 página, máx. 6)
-  - `controller/DocumentUploadController` — `POST /institutional-documents` (multipart `files`)
-  - `service/DocumentIngestionService` — PDFBox por página → split 500/50 → embeddings (metadados `fileName`, `page`)
+  - `controller/DocumentUploadController` — `POST /institutional-documents` (multipart `files`; reenvio substitui) e `DELETE /institutional-documents/{fileName}`
+  - `service/DocumentIngestionService` — PDFBox por página → split 500/50 → embeddings (metadados `fileName`, `page`, `uploaded_at`); `deleteByFileName` via `removeAll(filtro)`
   - `eval/` — `gabarito.json` (perguntas + páginas esperadas) e amostras do Docling
   - `EmbeddingDemoRunner` — CommandLineRunner do Marco 2 (demonstração, pode ser removido)
   - `UnifioRagAgentApplication`
@@ -52,7 +52,7 @@ Estou construindo **incrementalmente**, seguindo um tutorial por marcos (Marco 0
 - [x] Marco 2 — demo de embeddings rodou (dim 768; sim. relacionada ≈ 0.708, não relacionada ≈ 0.601)
 - [x] Marco 3 — RAG em memória (`/chat2`); evoluiu para top-4 + expansão de vizinhos
 - [x] Marco 4 — ingestão de PDF (PPC 192 págs + horário) funcionando; limites conhecidos com tabelas/listas (ver log)
-- [ ] Marco 5 — **próximo**: pgvector (dim 1024) + docker-compose; depois extras: busca híbrida e `docling-serve`
+- [ ] Marco 5 — **em andamento**: `docker-compose.yml` (pgvector/pg16, `ragdb`, `rag`/`rag`, 5432) + `PgVectorEmbeddingStore` (tabela `institutional_embeddings`, `vector(1024)`) funcionando; reenvio sem duplicar + `DELETE` por arquivo testados; falta reenviar os PDFs reais e rodar o gabarito; depois extras: busca híbrida (hoje `/chat2` é só vetorial) e `docling-serve`
 - [ ] Marco 6
 - [ ] Marco 7
 
@@ -67,6 +67,7 @@ Estou construindo **incrementalmente**, seguindo um tutorial por marcos (Marco 0
 
 ## Log de sessões
 <!-- Claude: adicione uma linha por sessão, mais recente no topo. Formato: AAAA-MM-DD — o que foi feito — próximo passo -->
+- 2026-09-25 — Marco 5: `docker-compose.yml` (pgvector/pg16) e `LangChainConfig` com `PgVectorEmbeddingStore` (localhost:5432/ragdb, `createTable(true)`, dim em `unifio.embedding.dimension=1024`); removidos os fatos de exemplo do Marco 3. App subiu na 8081 e criou `institutional_embeddings` (`embedding_id uuid`, `embedding vector(1024)`, `text`, `metadata json`; sem índice vetorial, ok para ~1k linhas). Confirmado que `/chat2` é só vetorial. Armadilhas: reenviar o mesmo PDF **duplica** trechos; trocar modelo de embedding exige `DROP TABLE`. Depois: aplicado o útil de um handoff externo — reenvio do mesmo PDF agora apaga a versão anterior (`removeAll` por `fileName`, só depois de o PDF novo abrir), metadado `uploaded_at` e `DELETE /institutional-documents/{fileName}` (204). Testado na 8081 com PDF sintético de 2 págs: 2 trechos → reenvio continua 2 → delete zera. Descartado do handoff: `ApachePdfBoxDocumentParser` (perde a página), campo `source` (redundante com `fileName`), fontes no `/chat` (é o Marco 6). Obs.: Ollama estava fora no início do teste (ConnectException) — conferir antes de subir a app. — próximo: reenviar PPC + horário, rodar o gabarito e depois busca híbrida (`tsvector` `portuguese` + GIN + RRF).
 - 2026-09-24 — Teste da expansão de vizinhos (instância na porta 8081, qwen3:8b + bge-m3): mecânica funciona (±1 página, máx. 6, sem duplicar), mas **sem ganho no gabarito** — busca não chega perto da matriz (top-4 da pergunta de disciplinas: p.47, 29, 68, 27) nem da p.3. "6º semestre?" e coordenador → "não está no contexto"; 1970 ✅. Ponto positivo: qwen3 diz "não sei" em vez de inventar. ~25 s por resposta (maior parte é o raciocínio do qwen3). Expansão só deve render quando a busca melhorar (híbrida no Marco 5).
 - 2026-09-24 — Docling no ementário (seção 3.4.1, págs. 69–72): detectou como título "3.4.1. Disciplinas", "PRIMEIRO SEMESTRE", cada nome de disciplina, "EMENTA" e "BIBLIOGRAFIA BÁSICA/COMPLEMENTAR", mas **todos no mesmo nível** (`##` no MD, `level=1` no JSON), sem hierarquia. Dividir só "por título" separaria EMENTA/BIBLIOGRAFIA do nome da disciplina. Próximo: inferir hierarquia de forma genérica (numeração 3.4.1 → profundidade; títulos repetidos como EMENTA = rótulos internos; ou LLM classificando a lista de títulos).
 - 2026-09-24 — Chat trocado para `qwen3:8b` (propriedade `unifio.chat.model`). Ollama 0.34 devolve o raciocínio do qwen3 no campo `thinking` separado, então o `content` lido pelo LangChain4j vem limpo. Teste isolado (seção certa no contexto): coordenador ✅ com o prompt atual; disciplinas "não é possível determinar" com o prompt atual; com prompt "você pode listar, contar e resumir", acertou o total 46 mas errou a divisão por semestre e passou a recusar o coordenador (cauteloso demais). Contagem por LLM segue não confiável. Prompt do `/chat2` **não** foi alterado.
