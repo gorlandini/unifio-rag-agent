@@ -42,16 +42,17 @@ public class ChatController {
     public record ChatRequest(String question) {
     }
 
-    public record ChatResponse(String answer) {
+    public record ChatResponse(String answer, List<Source> sources) {
     }
 
-    private record PageRef(String fileName, int page) {
+    // também usada internamente para montar o contexto por página
+    public record Source(String fileName, int page) {
     }
 
     @PostMapping("/chat")
     public ChatResponse chat(@RequestBody ChatRequest request) {
         String answer = chatModel.chat(request.question());
-        return new ChatResponse(answer);
+        return new ChatResponse(answer, List.of());
     }
 
 
@@ -71,6 +72,14 @@ public class ChatController {
                 m.embedded().metadata().getString("page"),
                 m.embedded().text().substring(0, Math.min(120, m.embedded().text().length())).replace("\n", " ")));
 
+        // fontes = páginas do top-K, sem repetir, em ordem de score (as vizinhas entram só no contexto)
+        List<Source> sources = matches.stream()
+                .map(m -> m.embedded().metadata())
+                .filter(md -> md.getString("fileName") != null && md.getString("page") != null)
+                .map(md -> new Source(md.getString("fileName"), Integer.parseInt(md.getString("page"))))
+                .distinct()
+                .toList();
+
         String contexto = montarContextoComVizinhos(matches, questionEmbedding);
         String prompt = """
                 Responda usando apenas o contexto abaixo. Se não estiver lá, diga que não sabe.
@@ -78,28 +87,28 @@ public class ChatController {
                 %s
                 Pergunta: %s
                 """.formatted(contexto, request.question());
-        return new ChatResponse(chatModel.chat(prompt));
+        return new ChatResponse(chatModel.chat(prompt), sources);
     }
 
     // Expansão de vizinhos: para cada página encontrada, manda ao LLM a página inteira + a anterior e a seguinte.
     private String montarContextoComVizinhos(List<EmbeddingMatch<TextSegment>> matches, Embedding questionEmbedding) {
         List<String> semPagina = new ArrayList<>(); // ex.: fatos de exemplo do LangChainConfig
-        List<PageRef> encontradas = new ArrayList<>();
+        List<Source> encontradas = new ArrayList<>();
         for (EmbeddingMatch<TextSegment> match : matches) {
             Metadata md = match.embedded().metadata();
             if (md.getString("fileName") == null || md.getString("page") == null) {
                 semPagina.add(match.embedded().text());
             } else {
-                encontradas.add(new PageRef(md.getString("fileName"), Integer.parseInt(md.getString("page"))));
+                encontradas.add(new Source(md.getString("fileName"), Integer.parseInt(md.getString("page"))));
             }
         }
 
         // primeiro as páginas encontradas (em ordem de score), depois as vizinhas, até o limite
-        Set<PageRef> paginas = new LinkedHashSet<>();
+        Set<Source> paginas = new LinkedHashSet<>();
         encontradas.forEach(p -> addAteLimite(paginas, p));
-        for (PageRef p : encontradas) {
-            addAteLimite(paginas, new PageRef(p.fileName(), p.page() - 1));
-            addAteLimite(paginas, new PageRef(p.fileName(), p.page() + 1));
+        for (Source p : encontradas) {
+            addAteLimite(paginas, new Source(p.fileName(), p.page() - 1));
+            addAteLimite(paginas, new Source(p.fileName(), p.page() + 1));
         }
         System.out.println("Páginas no contexto: " + paginas);
 
@@ -132,7 +141,7 @@ public class ChatController {
         return String.join("\n\n", blocos);
     }
 
-    private static void addAteLimite(Set<PageRef> paginas, PageRef p) {
+    private static void addAteLimite(Set<Source> paginas, Source p) {
         if (p.page() >= 1 && paginas.size() < MAX_PAGINAS_CONTEXTO) {
             paginas.add(p);
         }
