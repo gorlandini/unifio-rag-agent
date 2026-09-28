@@ -34,3 +34,6 @@ build/
 
 ### Amostras geradas (Docling etc.) - reproduziveis, nao versionar ###
 eval/*-docling.md
+
+### Uploads da ingestao assincrona (Marco 7) ###
+uploads/

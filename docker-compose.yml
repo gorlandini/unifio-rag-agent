@@ -10,5 +10,10 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  kafka:
+    image: apache/kafka:3.8.0 # nó único em modo KRaft (sem Zookeeper); a config padrão da imagem já anuncia localhost:9092
+    ports:
+      - "9092:9092"
+
 volumes:
   pgdata:
