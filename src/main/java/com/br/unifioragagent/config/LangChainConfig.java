@@ -16,7 +16,7 @@ public class LangChainConfig {
     @Bean
     public ChatModel chatLanguageModel(@Value("${unifio.chat.model}") String modelName) {
         return OllamaChatModel.builder()
-                .baseUrl("http://localhost:11434")
+                .baseUrl("http://localhost:11600")
                 .modelName(modelName)
                 .temperature(0.3)
                 .numCtx(8192) // janela de contexto; o padrão do Ollama corta prompts longos sem avisar
@@ -27,7 +27,7 @@ public class LangChainConfig {
     @Bean
     public EmbeddingModel embeddingModel(@Value("${unifio.embedding.model}") String modelName) {
         return OllamaEmbeddingModel.builder()
-                .baseUrl("http://localhost:11434")
+                .baseUrl("http://localhost:11600")
                 .modelName(modelName)
                 .build();
     }

@@ -1,0 +1,4 @@
+# bge-m3 só na CPU, para não disputar a VRAM com o modelo de chat
+# criar: ollama create bge-m3-cpu -f Modelfile.bge-m3-cpu   (com OLLAMA_HOST=127.0.0.1:11600)
+FROM bge-m3
+PARAMETER num_gpu 0

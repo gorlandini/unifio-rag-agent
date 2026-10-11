@@ -15,5 +15,12 @@ services:
     ports:
       - "9092:9092"
 
+  docling:
+    image: ghcr.io/docling-project/docling-serve-cpu:latest # extrai o PDF com layout (tabelas viram Markdown); CPU basta
+    environment:
+      DOCLING_SERVE_MAX_SYNC_WAIT: 1800 # o padrão (120 s) não dá para o PPC inteiro de 192 páginas
+    ports:
+      - "5001:5001"
+
 volumes:
   pgdata:
